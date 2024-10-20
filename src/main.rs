@@ -97,7 +97,7 @@ fn single_cast(pos: Vec2, angle: Vec2, map: &Tilemap) -> (u8, f32) {
 
     // DDA
     let mut hit = false;
-    let mut side: bool;
+    let mut side = false;
     while !hit {
         if side_dist.x < side_dist.y {
             side_dist.x += d_dist.x;
@@ -113,7 +113,19 @@ fn single_cast(pos: Vec2, angle: Vec2, map: &Tilemap) -> (u8, f32) {
         if (map.0[mappos.y as usize][mappos.x as usize] > 0) { hit = true }
     }
 
-    (map.0[mappos.y as usize][mappos.x as usize], (pos - mappos).length())
+    let val = map.0[mappos.y as usize][mappos.x as usize];
+    //let depth = (pos - mappos).length(); // Fisheye effect
+    let depth;
+    if side { depth = side_dist.y - d_dist.y }
+    else { depth = side_dist.x - d_dist.x }
+
+    (val, depth)
+}
+
+fn wall_height(depth: f32, height: f32) -> (f32, f32) {
+    let rectheight = height/depth;
+    let top = -rectheight / 2.0 + height / 2.0;
+    (top, rectheight)
 }
 
 fn draw_raycaster(fov: f32, world: &World) {
@@ -121,16 +133,21 @@ fn draw_raycaster(fov: f32, world: &World) {
         if mapactv.0 {
             for (id, (pos, rot, plyractv, _)) in world.query::<(&Position, &Rotation, &Active, &Player)>().iter() {
                 if plyractv.0 {
-                    let resolution: usize = 48;
+                    let resolution: usize = 0b1000_0000;
                     let step = 1.0/resolution as f32;
 
-                    for i in 0..resolution {
-                        let rayangle = rot.0.rotate(Vec2::from_angle(step * i as f32));
-                        let (val, depth) = single_cast(pos.0, rayangle, &map);
-                        let color = Color::from_vec(color_from_val(val).to_vec()*depth/10.0);
-                        println!("{}", depth);
 
-                        draw_rectangle(screen_width()*step*i as f32, 0.0, screen_width()*step, screen_height(), color);
+                    let plane = rot.0.perp(); // probably suboptimal to do this every frame
+
+                    for i in 0..resolution {
+                        //let rayangle = rot.0.rotate(Vec2::from_angle(step * i as f32));
+                        let camera = Vec2::new(2.0 * i as f32 / resolution as f32 - 1.0, 0.0);
+                        let rayangle = rot.0 + plane * camera.x;
+                        let (val, depth) = single_cast(pos.0, rayangle, &map);
+                        let color = Color::from_vec(color_from_val(val).to_vec()/(depth*0.2).max(1.0));
+
+                        let (walltop, wallheight) = wall_height(depth, 480.0);
+                        draw_rectangle(screen_width()*step*i as f32, walltop, screen_width()*step, wallheight, color);
                     }
                 }
             }
@@ -192,8 +209,8 @@ async fn main() {
         for (id, (pos, rot, _)) in world.query_mut::<(&mut Position, &mut Rotation, &Player)>() {
             //if is_key_down(KeyCode::Up) { pos.0.y -= 10.0 * dt }
             //else if is_key_down(KeyCode::Down) { pos.0.y += 10.0 * dt }
-            let speed: f32 = 10.0;
-            let turnspeed: f32 = 2.0;
+            let speed: f32 = 5.0;
+            let turnspeed: f32 = 1.5;
 
             if is_key_down(KeyCode::Up) {
                 pos.0 += rot.0 * speed * dt
@@ -218,6 +235,9 @@ async fn main() {
             //println!("Playerpos: {:?}", pos.0)
         }
 
+        // Draw minimap
+        draw_tilemap(5.0, &world);
+
         // Limit to framerate
         let minimum_frame_time = 1. / 144.; // 60 FPS
         let frame_time = get_frame_time();
@@ -227,10 +247,6 @@ async fn main() {
                 //println!("Sleep for {}ms", time_to_sleep);
                 std::thread::sleep(std::time::Duration::from_millis(time_to_sleep as u64));
         }
-
-
-
-        draw_tilemap(5.0, &world);
 
         next_frame().await;
     }
