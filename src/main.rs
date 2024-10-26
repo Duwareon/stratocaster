@@ -56,15 +56,15 @@ fn draw_tilemap(mapscale: f32, world: &World) {
     {
         if actv.0 {
             let renderpos = Vec2::new(
-                pos.0.x * mapscale + mapscale / 2.0,
-                pos.0.y * mapscale + mapscale / 2.0,
+                pos.0.x * mapscale,
+                pos.0.y * mapscale,
             );
             draw_line(
                 renderpos.x,
                 renderpos.y,
-                renderpos.x + rot.0.x * mapscale * 1.5,
-                renderpos.y + rot.0.y * mapscale * 1.5,
-                mapscale / 4.0,
+                renderpos.x + rot.0.x * mapscale * 20.0,
+                renderpos.y + rot.0.y * mapscale * 20.0,
+                mapscale / 6.0,
                 WHITE,
             );
             draw_circle(renderpos.x, renderpos.y, mapscale / 2.0, RED);
@@ -72,28 +72,21 @@ fn draw_tilemap(mapscale: f32, world: &World) {
     }
 }
 
+                    
 
-fn single_cast(pos: Vec2, angle: Vec2, map: &Tilemap) -> (u8, f32) {
+fn single_cast(pos: Vec2, angle: Vec2, map: &Tilemap) -> (u8, f32) { // for some reason getting the correct tile + (1, 1) halfway through the tile
     let mut mappos = Vec2::new(pos.x.round(), pos.y.round());
+    
+    //draw_line(pos.x*5.0, pos.y*5.0, (pos.x+angle.x)*5.0, (pos.y+angle.y)*5.0, 1.0, WHITE);
 
     let d_dist = Vec2::new((1.0 / angle.x).abs(), (1.0 / angle.y).abs());
 
     let step = Vec2::new(angle.x.signum(), angle.y.signum());
 
-    // there has GOTTA be a more elegant way to calculate this
     let mut side_dist = Vec2::new(0.0, 0.0);
-    if angle.x < 0.0 {
-        side_dist.x = (pos.x - mappos.x) * d_dist.x;
-    }
-    else {
-        side_dist.x =  (mappos.x + 1.0 - pos.x) * d_dist.x;
-    }
-    if angle.y < 0.0 {
-        side_dist.y = (pos.y - mappos.y) * d_dist.y;
-    }
-    else {
-        side_dist.y =  (mappos.y + 1.0 - pos.y) * d_dist.y;
-    }
+
+    side_dist.x = (pos.x*(-step.x) - mappos.x*(-step.x) + step.x.max(0.0)) * d_dist.x;
+    side_dist.y = (pos.y*(-step.y) - mappos.y*(-step.y) + step.y.max(0.0)) * d_dist.y;
 
     // DDA
     let mut hit = false;
@@ -113,6 +106,7 @@ fn single_cast(pos: Vec2, angle: Vec2, map: &Tilemap) -> (u8, f32) {
         if (map.0[mappos.y as usize][mappos.x as usize] > 0) { hit = true }
     }
 
+    // Sometimes mappos is shifted by 1
     let val = map.0[mappos.y as usize][mappos.x as usize];
     //let depth = (pos - mappos).length(); // Fisheye effect
     let depth;
@@ -161,7 +155,7 @@ async fn main() {
 
     world.spawn((
         // Add player
-        Position(Vec2::new(8.0, 6.0)),
+        Position(Vec2::new(8.5, 6.5)),
         Velocity(Vec2::new(0.0, 0.0)),
         Rotation(Vec2::from_angle(3.14 / 2.0)),
         Player,
@@ -241,7 +235,7 @@ async fn main() {
         // Limit to framerate
         let minimum_frame_time = 1. / 144.; // 60 FPS
         let frame_time = get_frame_time();
-        println!("Frame time: {}ms", frame_time * 1000.);
+        //println!("Frame time: {}ms", frame_time * 1000.);
         if frame_time < minimum_frame_time {
                 let time_to_sleep = (minimum_frame_time - frame_time) * 1000.;
                 //println!("Sleep for {}ms", time_to_sleep);
