@@ -6,6 +6,7 @@ use macroquad::prelude::*;
 struct Position(Vec2);
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct Velocity(Vec2);
 
 #[derive(Debug)]
@@ -30,7 +31,7 @@ fn color_from_val(val: u8) -> Color {
 }
 
 fn draw_tilemap(mapscale: f32, world: &World) {
-    for (id, (map, active)) in world.query::<(&Tilemap, &Active)>().iter() {
+    for (_id, (map, active)) in world.query::<(&Tilemap, &Active)>().iter() {
         if active.0 {
             let mut j = 0;
             for row in map.0 {
@@ -50,7 +51,7 @@ fn draw_tilemap(mapscale: f32, world: &World) {
         }
     }
 
-    for (id, (pos, rot, actv, _)) in world
+    for (_id, (pos, rot, actv, _)) in world
         .query::<(&Position, &Rotation, &Active, &Player)>()
         .iter()
     {
@@ -103,7 +104,7 @@ fn single_cast(pos: Vec2, angle: Vec2, map: &Tilemap) -> (u8, f32) { // for some
             side = true;
         }
 
-        if (map.0[mappos.y as usize][mappos.x as usize] > 0) { hit = true }
+        if map.0[mappos.y as usize][mappos.x as usize] > 0 { hit = true }
     }
 
     // Sometimes mappos is shifted by 1
@@ -122,23 +123,23 @@ fn wall_height(depth: f32, height: f32) -> (f32, f32) {
     (top, rectheight)
 }
 
-fn draw_raycaster(fov: f32, world: &World) {
-    for (id, (map, mapactv)) in world.query::<(&Tilemap, &Active)>().iter() {
+fn draw_raycaster(resolution: usize, world: &World) {
+    for (_id, (map, mapactv)) in world.query::<(&Tilemap, &Active)>().iter() {
         if mapactv.0 {
-            for (id, (pos, rot, plyractv, _)) in world.query::<(&Position, &Rotation, &Active, &Player)>().iter() {
+            for (_id, (pos, rot, plyractv, _)) in world.query::<(&Position, &Rotation, &Active, &Player)>().iter() {
                 if plyractv.0 {
-                    let resolution: usize = 0b1000_0000;
                     let step = 1.0/resolution as f32;
 
 
-                    let plane = rot.0.perp(); // probably suboptimal to do this every frame
+                    let plane = rot.0.perp();
 
                     for i in 0..resolution {
-                        //let rayangle = rot.0.rotate(Vec2::from_angle(step * i as f32));
-                        let camera = Vec2::new(2.0 * i as f32 / resolution as f32 - 1.0, 0.0);
-                        let rayangle = rot.0 + plane * camera.x;
+                        let camera = 2.0 * i as f32 / resolution as f32 - 1.0; // Position on camera plane
+                        let rayangle = rot.0 + plane * camera; // Angle through camera plane
                         let (val, depth) = single_cast(pos.0, rayangle, &map);
-                        let color = Color::from_vec(color_from_val(val).to_vec()/(depth*0.2).max(1.0));
+
+                        let color = Color::from_vec(color_from_val(val).to_vec()
+						    /(depth/10.0).exp());
 
                         let (walltop, wallheight) = wall_height(depth, 480.0);
                         draw_rectangle(screen_width()*step*i as f32, walltop, screen_width()*step, wallheight, color);
@@ -163,7 +164,7 @@ async fn main() {
     ));
 
     #[rustfmt::skip]
-    let mut map: [[u8; 24]; 24] = [
+    let map: [[u8; 24]; 24] = [
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -197,10 +198,10 @@ async fn main() {
         request_new_screen_size(640.0, 480.0);
 
         // TODO: Actually add raycaster
-        draw_raycaster(95.0, &world);
+        draw_raycaster(0b1000_0000, &world);
 
         // Do player movement
-        for (id, (pos, rot, _)) in world.query_mut::<(&mut Position, &mut Rotation, &Player)>() {
+        for (_id, (pos, rot, _)) in world.query_mut::<(&mut Position, &mut Rotation, &Player)>() {
             //if is_key_down(KeyCode::Up) { pos.0.y -= 10.0 * dt }
             //else if is_key_down(KeyCode::Down) { pos.0.y += 10.0 * dt }
             let speed: f32 = 5.0;
