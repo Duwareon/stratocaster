@@ -75,8 +75,8 @@ fn draw_tilemap(mapscale: f32, world: &World) {
 
                     
 
-fn single_cast(pos: Vec2, angle: Vec2, map: &Tilemap) -> (u8, f32) { // for some reason getting the correct tile + (1, 1) halfway through the tile
-    let mut mappos = Vec2::new(pos.x.round(), pos.y.round());
+fn single_cast(pos: Vec2, angle: Vec2, map: &Tilemap) -> (u8, f32) {
+    let mut mappos = Vec2::new(pos.x.floor(), pos.y.floor());
     
     //draw_line(pos.x*5.0, pos.y*5.0, (pos.x+angle.x)*5.0, (pos.y+angle.y)*5.0, 1.0, WHITE);
 
@@ -109,11 +109,12 @@ fn single_cast(pos: Vec2, angle: Vec2, map: &Tilemap) -> (u8, f32) { // for some
 
     // Sometimes mappos is shifted by 1
     let val = map.0[mappos.y as usize][mappos.x as usize];
-    //let depth = (pos - mappos).length(); // Fisheye effect
     let depth;
     if side { depth = side_dist.y - d_dist.y }
     else { depth = side_dist.x - d_dist.x }
 
+    //let depth = (pos - mappos).length(); // Fisheye effect
+    
     (val, depth)
 }
 
