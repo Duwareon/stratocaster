@@ -139,10 +139,11 @@ fn draw_raycaster(resolution: usize, world: &World) {
                         let rayangle = rot.0 + plane * camera; // Angle through camera plane
                         let (val, depth) = single_cast(pos.0, rayangle, &map);
 
-                        let color = Color::from_vec(color_from_val(val).to_vec()
+                        let mut color = Color::from_vec(color_from_val(val).to_vec()
 						    /(depth/10.0).exp());
+                        color.a = 1.0;
 
-                        let (walltop, wallheight) = wall_height(depth, 480.0);
+                        let (walltop, wallheight) = wall_height(depth, screen_height());
                         draw_rectangle(screen_width()*step*i as f32, walltop, screen_width()*step, wallheight, color);
                     }
                 }
@@ -165,7 +166,7 @@ async fn main() {
     ));
 
     #[rustfmt::skip]
-    let map: [[u8; 24]; 24] = [
+    let mut map: [[u8; 24]; 24] = [
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -198,8 +199,18 @@ async fn main() {
         let dt = get_frame_time();
         request_new_screen_size(640.0, 480.0);
 
-        // TODO: Actually add raycaster
-        draw_raycaster(0b1000_0000, &world);
+        // Create toggling tile
+        for (_id, (map, actv)) in world.query_mut::<(&mut Tilemap, &Active)>() {
+            if actv.0 {
+                if (get_time()-get_time().round() > 0 as f64) {map.0[12][11] = 0;}
+                else {map.0[12][11] = 4;}
+            }
+        }
+
+        // Draw world
+        draw_rectangle(0.0, 0.0, screen_width(), screen_height()/2.0, BLUE);
+        draw_rectangle(0.0, screen_height()/2.0, screen_width(), screen_height()/2.0, BLACK);
+        draw_raycaster(0b1_0000_0000, &world);
 
         // Do player movement
         for (_id, (pos, rot, _)) in world.query_mut::<(&mut Position, &mut Rotation, &Player)>() {
